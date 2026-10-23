@@ -1,0 +1,59 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# apps — application workloads (inherited) with EKS scheduling + NLB
+# Inherits base/apps (orchestrator, merger, comparison-worker, dashboard,
+# watchdog, workers).
+#
+#  - images: here only the TAG of kubenbody/kubenbody-gpu/kubenbody-dashboard is set
+#    (updated by scripts/build-and-push.sh --aws). The session component then
+#    sets the registry, ECR (account-specific, so not committed).
+#  - GPU workers: nodeSelector accelerator=nvidia (node-group label; same
+#    patch as Azure). They already tolerate nvidia.com/gpu.
+#  - CPU workers: nodeSelector eks.amazonaws.com/nodegroup=workercpu. No
+#    extra toleration (on-demand; EKS Spot adds no taint anyway).
+#  - dashboard-frontend-svc: NLB via the built-in controller — without the
+#    annotation EKS creates a Classic ELB. Public, as on GKE/AKS. It also
+#    fronts the API (/api/* is proxied to dashboard-backend-svc).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base/apps
+
+images:
+  - name: kubenbody
+    newTag: "v1.0.0"
+  - name: kubenbody-gpu
+    newTag: "v1.0.0"
+  - name: kubenbody-dashboard
+    newTag: "v1.0.0"
+
+patches:
+  - target:
+      kind: Deployment
+      name: ".*-gpu$"
+    patch: |-
+      - op: add
+        path: /spec/template/spec/nodeSelector
+        value:
+          accelerator: nvidia
+
+  - target:
+      kind: Deployment
+      name: ".*-cpu$"
+    patch: |-
+      - op: add
+        path: /spec/template/spec/nodeSelector
+        value:
+          eks.amazonaws.com/nodegroup: workercpu
+
+  - target:
+      kind: Service
+      name: dashboard-frontend-svc
+    patch: |-
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: dashboard-frontend-svc
+        annotations:
+          service.beta.kubernetes.io/aws-load-balancer-type: nlb

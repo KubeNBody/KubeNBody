@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# monitoring — LGTM + Alloy (inherited) with Grafana on an NLB
+# Alloy uses in-cluster discovery, /var/log/pods and kubelet/cAdvisor via the
+# API proxy — cloud-neutral.
+#
+#  - lgtm replicas 0 -> 1: the base keeps it at 0 to leave CPU to the workers;
+#    without this the Grafana NLB fronts nothing and Alloy has nowhere to ship.
+#  - lgtm Service: NLB. An INTERNAL NLB would be unreachable from a laptop
+#    without VPN, so it is internet-facing but restricted to your /32 via
+#    loadBalancerSourceRanges — a session value (your IP), set by the session
+#    component. The AWS equivalent of AKS's internal LB.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base/monitoring
+
+patches:
+  - target:
+      kind: Deployment
+      name: lgtm
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+
+  - target:
+      kind: Service
+      name: lgtm
+    patch: |-
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: lgtm
+        namespace: monitoring
+        annotations:
+          service.beta.kubernetes.io/aws-load-balancer-type: nlb

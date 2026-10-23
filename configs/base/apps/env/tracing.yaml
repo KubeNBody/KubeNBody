@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# OpenTelemetry traces to the monitoring stack (Tempo, via the lgtm OTLP gRPC port): the API, the orchestrator and the merger.
+# Appended to the env of each Deployment annotated nbody.env/tracing: "true" (kustomization.yaml).
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: OTEL_EXPORTER_OTLP_ENDPOINT
+    value: http://lgtm-internal.monitoring.svc.cluster.local:4317

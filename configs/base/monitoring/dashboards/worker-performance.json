@@ -1,0 +1,104 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "Epoch Rate (epochs/sec)",
+      "type": "gauge",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "nbody_epoch_rate", "legendFormat": "{{compute_type}} / {{algorithm}}" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "thresholds": { "steps": [
+            { "color": "red", "value": null },
+            { "color": "yellow", "value": 10 },
+            { "color": "green", "value": 100 }
+          ] },
+          "min": 0, "max": 1000
+        }
+      }
+    },
+    {
+      "title": "Worker Utilization",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 16, "x": 8, "y": 0 },
+      "targets": [
+        { "expr": "nbody_worker_busy", "legendFormat": "{{worker_type}} ({{compute_type}})" }
+      ],
+      "fieldConfig": { "defaults": { "min": 0, "max": 1 } }
+    },
+    {
+      "title": "Physics Time vs I/O Time (p95)",
+      "description": "Per package, by worker type: physics vs loading the state (v1: S3 input file; v2: Redis), handing on the result (v1: S3 upload; v2: Redis registration) and v1 package-table updates",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum by (le, worker_type) (rate(nbody_package_physics_seconds_bucket[5m])))", "legendFormat": "Physics p95 {{worker_type}}" },
+        { "expr": "histogram_quantile(0.95, sum by (le, worker_type) (rate(nbody_package_download_seconds_bucket[5m])))", "legendFormat": "State load p95 {{worker_type}}" },
+        { "expr": "histogram_quantile(0.95, sum by (le, worker_type) (rate(nbody_package_upload_seconds_bucket[5m])))", "legendFormat": "Result out p95 {{worker_type}}" },
+        { "expr": "histogram_quantile(0.95, sum by (le, worker_type) (rate(nbody_package_db_seconds_bucket[5m])))", "legendFormat": "DB p95 {{worker_type}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "title": "Package Processing Latency (p50 / p95 / p99)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum by (le, worker_type) (rate(nbody_package_processing_seconds_bucket[5m])))", "legendFormat": "p50 {{worker_type}}" },
+        { "expr": "histogram_quantile(0.95, sum by (le, worker_type) (rate(nbody_package_processing_seconds_bucket[5m])))", "legendFormat": "p95 {{worker_type}}" },
+        { "expr": "histogram_quantile(0.99, sum by (le, worker_type) (rate(nbody_package_processing_seconds_bucket[5m])))", "legendFormat": "p99 {{worker_type}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "title": "Bodies Per Package",
+      "type": "histogram",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "targets": [
+        { "expr": "nbody_bodies_per_package_bucket", "legendFormat": "{{worker_type}}", "format": "heatmap" }
+      ]
+    },
+    {
+      "title": "Epoch Batch Time (100 epochs)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, rate(nbody_epoch_batch_seconds_bucket[5m]))", "legendFormat": "p50 {{compute_type}}/{{algorithm}}" },
+        { "expr": "histogram_quantile(0.95, rate(nbody_epoch_batch_seconds_bucket[5m]))", "legendFormat": "p95 {{compute_type}}/{{algorithm}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "title": "Packages Processed (by status)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 22 },
+      "targets": [
+        { "expr": "rate(nbody_worker_packages_processed_total[5m])", "legendFormat": "{{status}} ({{algorithm}})" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ops" } }
+    },
+    {
+      "title": "Epochs Processed (by algorithm)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 22 },
+      "targets": [
+        { "expr": "rate(nbody_worker_epochs_processed_total[5m])", "legendFormat": "{{compute_type}} / {{algorithm}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ops" } }
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["nbody", "workers", "performance"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "title": "KubeNBody Worker Performance",
+  "uid": "nbody-workers"
+}

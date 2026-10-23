@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# AWS prod (base stack) — example variables. Copy to terraform.tfvars and edit.
+# account_id and region come from the Makefile (ACCOUNT_ID / REGION).
+
+# Required (GLOBALLY unique)
+backup_bucket_name = "nbody-backups-CHANGEME" # 3-63 chars, lowercase, digits, dashes
+
+# Optional overrides (defaults shown)
+# name_prefix      = "nbody-eks"
+# vpc_cidr         = "10.20.0.0/16"
+# azs              = []   # empty = first 3 available; must include the preflight worker_zone
+# app_repositories = ["nbody", "nbody-gpu", "nbody-dashboard"]
+# ecr_keep_images  = 5

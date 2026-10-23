@@ -1,0 +1,197 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# The application services build the image themselves (kubenbody:local):
+x-nbody-build: &nbody-build
+  context: .
+  dockerfile: Dockerfile
+
+# Connection settings shared by the application services (local credentials
+# only, production reads them from Kubernetes secrets). Every port below is
+# published on 127.0.0.1 only: these credentials are public.
+x-nbody-env: &nbody-env
+  RABBITMQ_HOST: rabbitmq
+  RABBITMQ_USER: user
+  RABBITMQ_PASSWORD: password
+  # A V1 package or merge runs on the connection's thread, which answers no
+  # heartbeat meanwhile: the broker must not drop it for minutes (as in the
+  # manifests, the monolithic worker below differs)
+  RABBITMQ_HEARTBEAT: "1800"
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  MINIO_URL: http://minio:9000
+  MINIO_USER: user
+  MINIO_PASSWORD: password
+  POSTGRES_DB: nbody
+  POSTGRES_HOST: db
+  POSTGRES_PORT: "5432"
+  POSTGRES_USER: user
+  POSTGRES_PASSWORD: password
+  PYTHONUNBUFFERED: "1"
+  LOG_LEVEL: INFO
+  # Numba's kernel cache: the bind-mounted src/ belongs to the host user and is
+  # not writable by the container's on a Linux host
+  NUMBA_CACHE_DIR: /tmp/numba-cache
+  # traces of the API, the orchestrator and the merger to Tempo (lgtm below)
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4317
+
+x-nbody-app: &nbody-app
+  image: kubenbody:local
+  # services retry their connections at startup, a crash restarts them
+  restart: unless-stopped
+  build: *nbody-build
+  volumes:
+    - ./src:/app/src
+    - ./migrations:/app/migrations
+  environment: *nbody-env
+  depends_on:
+    - db
+    - minio
+    - rabbitmq
+    - redis
+
+services:
+
+  rabbitmq:
+    image: rabbitmq:3.12.6-management
+    hostname: rabbitmq
+    ports:
+      - 127.0.0.1:5672:5672
+      - 127.0.0.1:15672:15672
+    environment:
+      - RABBITMQ_DEFAULT_USER=user
+      - RABBITMQ_DEFAULT_PASS=password
+
+  redis:
+    image: redis:7.4.1-alpine
+    hostname: redis
+    ports:
+      - 127.0.0.1:6379:6379
+    volumes:
+      - redis_volume:/data
+    # Redis configuration for V2 distributed jobs:
+    # - appendonly yes: Persist to disk for crash recovery (snapshots also saved to S3)
+    # - maxmemory 2gb: Limit memory usage (adjust to the available RAM, each 10K bodies = ~640KB)
+    # - noeviction, as in production: every V2 key has a TTL, so an evicting
+    #   policy could drop a running job's coordination state under memory
+    #   pressure. Refusing writes fails loudly instead
+    command: redis-server --appendonly yes --maxmemory 2gb --maxmemory-policy noeviction
+
+  minio:
+    # minio/minio is no longer published. This is the same server as production
+    # (configs/base/infra/minio.yml), pinned by digest. It runs as root there
+    # too, for a volume written by the upstream image.
+    image: cgr.dev/chainguard/minio@sha256:6a1d0b45c8669726bba580ced0bfa4cb9fdeed1ed636dfabd81d1577beb6937b
+    user: "0:0"
+    entrypoint: ["minio"]
+    hostname: minio
+    ports:
+      - 127.0.0.1:19000:9000
+      - 127.0.0.1:19001:9001
+    volumes:
+      - minio_volume:/data
+    environment:
+      - MINIO_ROOT_USER=user
+      - MINIO_ROOT_PASSWORD=password
+    command: server --console-address ":9001" /data
+
+  db:
+    # Same major version as production (PGO, postgresVersion 17). A volume
+    # created by an older major needs `docker compose down -v` first.
+    image: postgres:17-alpine
+    ports:
+      - 127.0.0.1:15432:5432
+    volumes:
+      - db_volume:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=nbody
+
+  adminer:
+    image: adminer:5.3.0
+    ports:
+      - 127.0.0.1:18080:8080
+
+  # Grafana with Tempo, Loki and Prometheus, as in the cluster's monitoring
+  # namespace, with the same dashboards: http://localhost:3000 (admin/admin).
+  # Locally it gets the traces; nothing scrapes the services' metrics here
+  # (Alloy does in the cluster), so the metric panels stay empty
+  lgtm:
+    image: grafana/otel-lgtm:0.13.0
+    environment:
+      # the image enables anonymous access with the Admin role unless told otherwise
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    ports:
+      - 127.0.0.1:3000:3000
+    volumes:
+      - ../configs/base/monitoring/dashboards/provisioning.yaml:/etc/grafana/provisioning/dashboards/nbody.yaml:ro
+      - ../configs/base/monitoring/dashboards:/etc/grafana/dashboards:ro
+
+  orchestrator:
+    <<: *nbody-app
+    command: python /app/src/orchestrator.py
+
+  worker:
+    <<: *nbody-app
+    command: python /app/src/worker.py
+
+  merger:
+    <<: *nbody-app
+    command: python /app/src/merger.py
+
+  worker-v2:
+    <<: *nbody-app
+    command: python -m v2.worker_v2
+
+  worker-monolithic:
+    <<: *nbody-app
+    environment:
+      <<: *nbody-env
+      # jobs run in a thread and the connection thread answers heartbeats
+      RABBITMQ_HEARTBEAT: "60"
+    command: python /app/src/worker_monolithic.py
+
+  watchdog:
+    <<: *nbody-app
+    command: python /app/src/watchdog.py
+
+  comparison-worker:
+    <<: *nbody-app
+    command: python /app/src/comparison_worker.py
+
+  api:
+    <<: *nbody-app
+    ports:
+      - 127.0.0.1:8000:8000
+    environment:
+      <<: *nbody-env
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?set JWT_SECRET_KEY in code/.env, see .env.example}
+      JWT_ALGORITHM: HS256
+      JWT_EXPIRE_MINUTES: "1440"
+      DEFAULT_USER_USERNAME: user
+      DEFAULT_USER_PASSWORD: ${DEFAULT_USER_PASSWORD:?set DEFAULT_USER_PASSWORD (8+ characters) in code/.env, see .env.example}
+    command: uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+
+  dashboard:
+    build:
+      context: ./web-dashboard
+      dockerfile: Dockerfile
+    ports:
+      - 127.0.0.1:8501:8501
+    environment:
+      - API_URL=http://api:8000
+      - NODE_ENV=production
+    restart: unless-stopped
+    depends_on:
+      - api
+
+
+volumes:
+  minio_volume: {}
+  db_volume: {}
+  redis_volume: {}
+
+
+networks:
+  default:
+    driver: bridge

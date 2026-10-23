@@ -1,0 +1,199 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alloy-config
+data:
+  config.alloy: |
+    // ==========================================================================
+    // Logging - Collect container logs via Loki
+    // ==========================================================================
+
+    local.file_match "pods" {
+      path_targets = [{
+        __path__  = "/var/log/pods/*/*/*.log",
+        job       = "pods",
+      }]
+    }
+
+    loki.source.file "pods" {
+      targets    = local.file_match.pods.targets
+      forward_to = [loki.process.pods.receiver]
+    }
+
+    loki.process "pods" {
+      stage.cri {}
+
+      // Extract namespace, pod name, and container from log file path
+      // Path format: /var/log/pods/NAMESPACE_PODNAME_PODUID/CONTAINER/0.log
+      stage.regex {
+        expression = "/var/log/pods/(?P<pod_namespace>[^_]+)_(?P<pod_name>[^_]+)_(?P<pod_uid>[^/]+)/(?P<container>[^/]+)/"
+        source     = "filename"
+      }
+
+      stage.labels {
+        values = {
+          namespace = "pod_namespace",
+          pod       = "pod_name",
+          container = "container",
+        }
+      }
+
+      forward_to = [loki.write.lgtm.receiver]
+    }
+
+    loki.write "lgtm" {
+      endpoint {
+        url = "http://lgtm-internal.monitoring.svc.cluster.local:3100/loki/api/v1/push"
+      }
+    }
+
+    // ==========================================================================
+    // Metrics - Scrape Kubernetes metrics and send via OTLP
+    // ==========================================================================
+
+    // Kubernetes service discovery for pods with prometheus annotations
+    discovery.kubernetes "pods" {
+      role = "pod"
+    }
+
+    discovery.relabel "pods" {
+      targets = discovery.kubernetes.pods.targets
+
+      // Only scrape pods with prometheus.io/scrape annotation
+      rule {
+        source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_scrape"]
+        regex         = "true"
+        action        = "keep"
+      }
+
+      // Use custom port if specified
+      rule {
+        source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_port", "__meta_kubernetes_pod_ip"]
+        regex         = "(\\d+);(.+)"
+        target_label  = "__address__"
+        replacement   = "$2:$1"
+      }
+
+      // Use custom path if specified
+      rule {
+        source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_path"]
+        regex         = "(.+)"
+        target_label  = "__metrics_path__"
+      }
+
+      // Add pod labels
+      rule {
+        source_labels = ["__meta_kubernetes_namespace"]
+        target_label  = "namespace"
+      }
+
+      rule {
+        source_labels = ["__meta_kubernetes_pod_name"]
+        target_label  = "pod"
+      }
+
+      rule {
+        source_labels = ["__meta_kubernetes_pod_container_name"]
+        target_label  = "container"
+      }
+    }
+
+    // Scrape metrics from annotated pods
+    prometheus.scrape "pods" {
+      targets    = discovery.relabel.pods.output
+      forward_to = [otelcol.receiver.prometheus.default.receiver]
+    }
+
+    // Kubelet metrics
+    discovery.kubernetes "nodes" {
+      role = "node"
+    }
+
+    discovery.relabel "kubelet" {
+      targets = discovery.kubernetes.nodes.targets
+
+      rule {
+        target_label = "__address__"
+        replacement  = "kubernetes.default.svc:443"
+      }
+
+      rule {
+        source_labels = ["__meta_kubernetes_node_name"]
+        regex         = "(.+)"
+        target_label  = "__metrics_path__"
+        replacement   = "/api/v1/nodes/$1/proxy/metrics"
+      }
+
+      rule {
+        source_labels = ["__meta_kubernetes_node_name"]
+        target_label  = "node"
+      }
+    }
+
+    prometheus.scrape "kubelet" {
+      targets         = discovery.relabel.kubelet.output
+      scheme          = "https"
+      bearer_token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+      tls_config {
+        ca_file              = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+        insecure_skip_verify = true
+      }
+      forward_to = [otelcol.receiver.prometheus.default.receiver]
+    }
+
+    // cAdvisor metrics (container metrics)
+    discovery.relabel "cadvisor" {
+      targets = discovery.kubernetes.nodes.targets
+
+      rule {
+        target_label = "__address__"
+        replacement  = "kubernetes.default.svc:443"
+      }
+
+      rule {
+        source_labels = ["__meta_kubernetes_node_name"]
+        regex         = "(.+)"
+        target_label  = "__metrics_path__"
+        replacement   = "/api/v1/nodes/$1/proxy/metrics/cadvisor"
+      }
+
+      rule {
+        source_labels = ["__meta_kubernetes_node_name"]
+        target_label  = "node"
+      }
+    }
+
+    prometheus.scrape "cadvisor" {
+      targets         = discovery.relabel.cadvisor.output
+      scheme          = "https"
+      bearer_token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+      tls_config {
+        ca_file              = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+        insecure_skip_verify = true
+      }
+      forward_to = [otelcol.receiver.prometheus.default.receiver]
+    }
+
+    // ==========================================================================
+    // OTLP Pipeline - Convert Prometheus metrics to OTLP and send to LGTM
+    // ==========================================================================
+
+    otelcol.receiver.prometheus "default" {
+      output {
+        metrics = [otelcol.processor.batch.default.input]
+      }
+    }
+
+    otelcol.processor.batch "default" {
+      output {
+        metrics = [otelcol.exporter.otlphttp.lgtm.input]
+      }
+    }
+
+    otelcol.exporter.otlphttp "lgtm" {
+      client {
+        endpoint = "http://lgtm-internal.monitoring.svc.cluster.local:4318"
+      }
+    }

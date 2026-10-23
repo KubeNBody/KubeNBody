@@ -1,0 +1,107 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# PostgreSQL HA cluster (CrunchyData PGO). Each overlay sets the backup
+# repository (its object store), the pgBackRest secret's settings and the
+# service account's workload identity.
+---
+# 1. pgBackRest ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nbody-db-pgbackrest
+---
+# 2. Database initialization SQL (grants permissions to nbody user)
+# PGO runs databaseInitSQL against the `postgres` database, so `\c nbody` (a
+# psql meta-command it supports) makes the grants land in the nbody database.
+# Since PostgreSQL 15 only the owner may CREATE in public, so without it the
+# migrations fail with "permission denied for schema public". nbody is not a
+# superuser: pgbouncer's auth function excludes superusers.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nbody-db-init-sql
+data:
+  init.sql: |
+    \c nbody
+    ALTER SCHEMA public OWNER TO nbody;
+    GRANT ALL ON SCHEMA public TO nbody;
+    GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO nbody;
+    GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO nbody;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO nbody;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO nbody;
+---
+# 3. pgBackRest configuration secret (must exist before PostgresCluster)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: nbody-db-pgbackrest-secret
+type: Opaque
+stringData: {}
+---
+# 4. PostgresCluster (references the above resources)
+apiVersion: postgres-operator.crunchydata.com/v1beta1
+kind: PostgresCluster
+metadata:
+  name: nbody-db
+spec:
+  postgresVersion: 17
+
+  users:
+    - name: nbody
+      databases:
+        - nbody
+      # NOTE: Do not use SUPERUSER - pgbouncer's get_auth function excludes superusers for security
+
+  # Run init SQL after cluster creation to grant permissions
+  databaseInitSQL:
+    name: nbody-db-init-sql
+    key: init.sql
+
+  instances:
+    - name: pgha1
+      replicas: 2
+      dataVolumeClaimSpec:
+        storageClassName: ssd
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 50Gi
+      resources:
+        requests:
+          cpu: "250m"
+          memory: "512Mi"
+        limits:
+          cpu: "1000m"
+          memory: "2Gi"
+
+  proxy:
+    pgBouncer:
+      replicas: 1
+      # NOTE: The operator automatically configures auth_query to use pgbouncer.get_auth()
+      # which has SECURITY DEFINER and proper permissions. Don't override auth_query.
+      #
+      # Session pooling (the default): every open client connection holds a
+      # server connection. With the default pool of 20, the monolithic workers'
+      # lease renewers queue behind the long-lived connections and are closed
+      # after query_wait_timeout (120 s), so live jobs lose their leases. 60
+      # stays well under max_connections (100).
+      config:
+        global:
+          default_pool_size: "60"
+          max_client_conn: "400"
+
+  backups:
+    pgbackrest:
+      configuration:
+        - secret:
+            name: nbody-db-pgbackrest-secret
+      global:
+        repo1-path: /pgbackrest/nbody-db/repo1
+        # pgBackRest expires old backups itself: the last 7 full ones are kept
+        repo1-retention-full: "7"
+        repo1-retention-full-type: count
+      repos:
+        - name: repo1
+          schedules:
+            full: "0 1 * * *"

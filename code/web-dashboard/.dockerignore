@@ -1,0 +1,39 @@
+# =============================================================================
+# Build context of the dashboard image (web-dashboard/Dockerfile).
+#
+# The deps stage installs node_modules with `npm ci` in Linux; the builder
+# stage then runs `COPY . .`, so the host's node_modules (darwin binaries) and
+# .next build output must not be in the context, or they overwrite the Linux
+# ones. .env* files would be baked into the build; pass build-time settings as
+# build args instead.
+# =============================================================================
+
+node_modules/
+.next/
+.next-server-kept/
+out/
+# Static demo fixtures (scripts/build-static-demo.mjs; its export goes to out/)
+demo-data/
+build/
+coverage/
+.turbo/
+.vercel/
+*.tsbuildinfo
+
+# Secrets
+.env
+.env.*
+*.pem
+
+# Logs, tooling, OS
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.git/
+.gitignore
+.dockerignore
+Dockerfile
+.idea/
+.vscode/
+**/.DS_Store

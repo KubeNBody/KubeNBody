@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# NVIDIA device plugin, not part of the base: the AKS and EKS overlays include
+# it (their GPU nodes come with the driver but do not advertise nvidia.com/gpu
+# until a device plugin runs). GKE installs its own.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - nvidia-device-plugin.yml

@@ -1,0 +1,58 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# infra — Postgres/MinIO/RabbitMQ/Redis (inherited) with Postgres → S3 (IRSA)
+# Inherits base/infra (MinIO, RabbitMQ, Redis-HA helm, PVCs — cloud-neutral;
+# they use `ssd`/`balanced` by name, provided on EBS by base/).
+#
+# Static here (structure); session values filled by the session component:
+#  - repo1 on s3. bucket/endpoint/region, repo1-path (one
+#    repo GENERATION per `make up`), the IRSA role annotation, the ECR mirror
+#    images and — when restoring — spec.dataSource are session patches.
+#  - retention by pgBackRest (the base keeps 7 full backups), not by S3 lifecycle.
+#  - `manual` backup config so `make down` can trigger a final full backup.
+#  - the config Secret holds s3.conf with repo1-s3-key-type=web-id (no
+#    credentials in it — IRSA supplies them).
+#  - `\c nbody` init-SQL fix, ported from configs/azure.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base/infra
+
+patches:
+  # pgBackRest repo -> S3 (values are session placeholders) + manual backups.
+  - target:
+      kind: PostgresCluster
+      name: nbody-db
+    patch: |-
+      - op: replace
+        path: /spec/backups/pgbackrest/repos
+        value:
+          - name: repo1
+            schedules:
+              full: "0 1 * * *"
+            s3:
+              bucket: "SESSION-bucket"
+              endpoint: "s3.SESSION-region.amazonaws.com"
+              region: "SESSION-region"
+      - op: add
+        path: /spec/backups/pgbackrest/manual
+        value:
+          repoName: repo1
+          options:
+            - --type=full
+
+  # gcs.conf -> s3.conf (same Secret name, referenced by the PostgresCluster).
+  - target:
+      kind: Secret
+      name: nbody-db-pgbackrest-secret
+    patch: |-
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: nbody-db-pgbackrest-secret
+      stringData:
+        $patch: replace
+        s3.conf: |
+          [global]
+          repo1-s3-key-type=web-id

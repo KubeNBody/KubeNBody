@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# ESO + PGO from base/operators (PGO vendored under base/operators/charts).
+# The ESO ServiceAccount's Workload Identity and the ClusterSecretStore
+# (azure-kv) are deployment values, in the generated session component.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base/operators

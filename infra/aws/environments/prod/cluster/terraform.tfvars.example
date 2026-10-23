@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# AWS prod (cluster stack) — example variables. Copy to terraform.tfvars and edit.
+# account_id, region, state_bucket and cluster_name come from the Makefile
+# (ACCOUNT_ID / REGION / STATE_BUCKET / CLUSTER_NAME).
+
+# Required: the AZ from `make preflight` offering both c7a.large and g4dn.xlarge.
+# Must be one of the base stack's AZs.
+worker_zone = "eu-central-1a"
+
+# Optional overrides (defaults shown)
+# kubernetes_version           = "1.35"
+# endpoint_public_access_cidrs = ["0.0.0.0/0"]   # e.g. ["<your-ip>/32"]
+# system_instance_type         = "m6i.xlarge"     # t3a.xlarge ~25% cheaper (burstable)
+# system_node_count            = 2
+# worker_instance_type         = "c7a.large"
+# worker_max_nodes             = 16
+# gpu_instance_type            = "g4dn.xlarge"
+# gpu_max_nodes                = 2

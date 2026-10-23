@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# gpu — NVIDIA device plugin
+# AKS auto-installs the CUDA DRIVER on the NC4as_T4_v3 pool, but does NOT
+# advertise nvidia.com/gpu until a device plugin runs. This DaemonSet
+# provides it, scheduled only on GPU nodes and tolerating the GPU taint.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base/gpu

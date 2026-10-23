@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# Pod security of the Python services and workers (the containers' user nbody, uid/gid 999):
+# non-root, no privilege escalation, no capabilities, the runtime's seccomp profile.
+# Applied to every Deployment annotated nbody.env/base: "true" (kustomization.yaml).
+- op: add
+  path: /spec/template/spec/securityContext
+  value:
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
+    seccompProfile:
+      type: RuntimeDefault
+- op: add
+  path: /spec/template/spec/containers/0/securityContext
+  value:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: ["ALL"]

@@ -1,0 +1,34 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# AWS overlay — top-level kustomization
+# Overlay of configs/base (same shape as configs/gcp and configs/azure): each
+# subdir references the matching base subdir and adds only the cloud-specific
+# bits for EKS.
+#
+# SESSION VALUES (account-specific ECR host, IRSA role ARNs, backup bucket,
+# pgBackRest repo generation, your /32 for Grafana, third-party mirror renames)
+# come from the generated component `session/` — written by `make configure`
+# (infra/aws/scripts/configure.sh), gitignored, so no account IDs are committed.
+# `make render` builds with example values for offline checks.
+#
+# ORDER: components run BEFORE a kustomization's own transformers, so the
+# session component is attached HERE, after every subdir has fully rendered
+# (their own images/patches first, then the session renames). It is not attached
+# in the subdirs. Deploy step 2 uses stages/operators for the same reason.
+#
+# NOTE: session/cluster-secret-store.yml is applied SEPARATELY by the Makefile
+# after the ESO CRDs are Established — same staged flow as GCP/Azure.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - base
+  - operators
+  - secrets
+  - infra
+  - apps
+  - monitoring
+  - gpu
+
+components:
+  - session

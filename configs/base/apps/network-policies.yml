@@ -1,0 +1,93 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# Network rules for the nbody namespace. A pod selected by any policy accepts only
+# what some policy allows, so together these allow:
+#  - every pod of the namespace from every other one, except from the dashboard
+#    frontend, the internet-facing pod (it reaches the API only)
+#  - the frontend from anywhere (its LoadBalancer), on its port
+#  - every pod from the monitoring namespace (Alloy scrapes the metrics ports)
+#  - the PostgreSQL pods from the PGO operator, whatever its namespace
+# and the frontend reaches only the API and DNS (nothing in other namespaces).
+# Enforced where the cluster runs a NetworkPolicy engine (on GKE, Calico).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: within-namespace
+spec:
+  podSelector: {}
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              # NotIn also matches the pods without an app label (PGO, Redis)
+              - {key: app, operator: NotIn, values: ["dashboard-frontend"]}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-to-api
+spec:
+  podSelector:
+    matchLabels:
+      app: dashboard-backend
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: dashboard-frontend
+      ports:
+        - port: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-public
+spec:
+  podSelector:
+    matchLabels:
+      app: dashboard-frontend
+  policyTypes: ["Ingress"]
+  ingress:
+    - ports:
+        - port: 8501
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-egress
+spec:
+  podSelector:
+    matchLabels:
+      app: dashboard-frontend
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: dashboard-backend
+      ports:
+        - port: 8000
+    - ports:
+        - {port: 53, protocol: UDP}
+        - {port: 53, protocol: TCP}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: pgo-operator
+spec:
+  podSelector:
+    matchLabels:
+      postgres-operator.crunchydata.com/cluster: nbody-db
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              postgres-operator.crunchydata.com/control-plane: pgo

@@ -1,0 +1,63 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# GPU-accelerated N-Body Worker Dockerfile
+# CRITICAL: Must use 'devel' image (not 'runtime') to build PyCUDA
+# The 'devel' image includes nvcc, CUDA headers, and build tools required by PyCUDA
+#
+# NOTE: Multi-stage with runtime base is not possible here because PyCUDA
+# requires nvcc and CUDA headers at import time for JIT kernel compilation.
+
+# CUDA 12.8 supports compute capability up to sm_120 (Blackwell).
+# When changing the version, check that nvcc knows the architectures of every GPU you
+# deploy to — otherwise pycuda's auto-detected -arch flag will fail at compile.
+# As an escape hatch, the engine honors NBODY_GPU_ARCH=sm_<n> and falls back
+# to PTX so the driver JITs forward to a newer device arch.
+FROM nvidia/cuda:12.8.0-devel-ubuntu22.04
+
+# Prevent interactive prompts during installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install Python 3.11 and build tools
+RUN apt-get update && apt-get install -y \
+    python3.11 \
+    python3-pip \
+    python3.11-dev \
+    gcc \
+    g++ \
+    libpq-dev \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set Python 3.11 as default
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1
+
+# Upgrade pip and install Poetry
+RUN python3 -m pip install --upgrade pip \
+    && pip install --no-cache-dir poetry==2.4.1 \
+    && poetry config virtualenvs.create false
+
+WORKDIR /app
+
+# Install Python dependencies via Poetry
+COPY pyproject.toml poetry.lock ./
+RUN poetry install --without dev --with gpu --no-interaction --no-ansi --no-root
+
+# Create non-root user
+# uid/gid 999: the manifests' securityContext runs the pods as this user
+RUN groupadd -r -g 999 nbody && useradd -r -u 999 -g nbody -d /app -s /sbin/nologin nbody
+
+# Copy application code
+COPY --chown=nbody:nbody ./src ./src
+COPY --chown=nbody:nbody ./migrations ./migrations
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 PYTHONPATH=/app/src
+# pycuda caches compiled kernels under the user cache dir: HOME (/app) is not writable
+ENV XDG_CACHE_HOME=/tmp/.cache
+ENV CUDA_VISIBLE_DEVICES=0
+
+USER nbody
+
+# Run the GPU worker
+CMD ["python3", "/app/src/worker_monolithic_gpu.py"]

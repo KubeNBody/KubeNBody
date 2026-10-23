@@ -1,0 +1,60 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# PostgreSQL (the PGO-managed user secret), Python path, output, log format and Numba cache: every
+# application Deployment.
+# Appended to the env of each Deployment annotated nbody.env/base: "true" (kustomization.yaml).
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: POSTGRES_HOST
+    value: nbody-db-pgbouncer
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: POSTGRES_PORT
+    value: '5432'
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: POSTGRES_USER
+    valueFrom:
+      secretKeyRef:
+        key: user
+        name: nbody-db-pguser-nbody
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: POSTGRES_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        key: password
+        name: nbody-db-pguser-nbody
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: POSTGRES_DB
+    valueFrom:
+      secretKeyRef:
+        key: dbname
+        name: nbody-db-pguser-nbody
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: PYTHONUNBUFFERED
+    value: '1'
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: LOG_FORMAT
+    value: json
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: PYTHONPATH
+    value: /app/src
+# Numba's compiled-function cache, writable whatever user the image runs as
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: NUMBA_CACHE_DIR
+    value: /tmp/numba-cache

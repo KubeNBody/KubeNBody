@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# Persistent Volume Claims (GKE Dynamic Provisioning)
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minio-volume
+spec:
+  storageClassName: balanced
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 300Gi   # matches the live volume (expanded in place). A PVC cannot shrink

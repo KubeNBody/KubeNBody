@@ -1,0 +1,84 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# Monolithic CPU Worker (processes entire job on single worker)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-monolithic-cpu
+  annotations:
+    nbody.env/base: "true"
+    nbody.env/rabbitmq: "true"
+    nbody.env/minio: "true"
+spec:
+  # One monolithic worker per c2d-highcpu-2 node (2 vCPU). Scale to match the
+  # worker-cpu pool size when running a batch (e.g. 10). 0 when idle.
+  replicas: 0
+  selector:
+    matchLabels:
+      app: worker-monolithic-cpu
+  template:
+    metadata:
+      labels:
+        app: worker-monolithic-cpu
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      # Pin to the dedicated Spot CPU worker pool (tainted dedicated=worker)
+      tolerations:
+        - key: dedicated
+          operator: Equal
+          value: worker
+          effect: NoSchedule
+      terminationGracePeriodSeconds: 120
+      # Spread monolithic-cpu pods across nodes when possible. `preferred`
+      # rather than `required` so when replicas > node count, pods can still
+      # schedule by sharing nodes. With replicas <= node count each pod lands
+      # on its own node, giving the physics loop the full CPU budget.
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: worker-monolithic-cpu
+                topologyKey: kubernetes.io/hostname
+      containers:
+      - name: worker-monolithic-cpu
+        image: kubenbody:latest  # Set via kustomization.yaml
+        command: ["python", "/app/src/worker_monolithic.py"]
+        env:
+        # The Kubernetes node, recorded with each job (utils.metadata.compute_host)
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        # Jobs run in a thread and the connection thread answers heartbeats, so a
+        # short heartbeat is safe. It bounds how long the broker holds the job of
+        # a worker whose node was lost.
+        - name: RABBITMQ_HEARTBEAT
+          value: "60"
+        # Numba parallel threading: match the 2-vCPU c2d-highcpu-2 node.
+        - name: NUMBA_NUM_THREADS
+          value: "2"
+        # Per-snapshot energy and COM drift in the log (an O(N^2) pass per
+        # snapshot). Off by default, as on the distributed workers. "1" to enable.
+        - name: NBODY_SNAPSHOT_DIAGNOSTICS
+          value: "0"
+        ports:
+        - containerPort: 9090
+          name: metrics
+        # No liveness probe: the container exits with its process.
+        resources:
+          # Sized for c2d-highcpu-2 (2 vCPU / 4 GB): request ~1 vCPU so exactly
+          # one worker lands per node, limit near-full so the numba loop can use
+          # both vCPUs.
+          requests:
+            memory: "512Mi"
+            cpu: "1000m"
+          limits:
+            memory: "3Gi"
+            cpu: "1900m"

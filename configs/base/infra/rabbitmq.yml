@@ -1,0 +1,108 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# RabbitMQ (Message Queue)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq
+spec:
+  replicas: 1
+  # ReadWriteOnce volume: stop the old pod before starting the new one.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: rabbitmq
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+    spec:
+      # RabbitMQ keeps its data under its node name (rabbit@<hostname>): a fixed
+      # hostname lets a rescheduled pod find the durable queues on the volume.
+      hostname: rabbitmq
+      # Run as the image's rabbitmq user (and group, which fsGroup gives write
+      # access to the volume), so the server and the rabbitmq-diagnostics
+      # probes share one user: a probe running as root before the server had
+      # started created the Erlang cookie as root, and the server then failed
+      # to read it (checked with this image in Docker).
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+      containers:
+      - name: rabbitmq
+        image: rabbitmq:3.12.6-management
+        env:
+        - name: RABBITMQ_DEFAULT_USER
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-secrets
+              key: RABBITMQ_DEFAULT_USER
+        - name: RABBITMQ_DEFAULT_PASS
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-secrets
+              key: RABBITMQ_DEFAULT_PASS
+        ports:
+        - containerPort: 5672
+        - containerPort: 15672
+        volumeMounts:
+        - name: rabbitmq-data
+          mountPath: /var/lib/rabbitmq
+        livenessProbe:
+          exec:
+            command: ["rabbitmq-diagnostics", "-q", "ping"]
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 15
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command: ["rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+          initialDelaySeconds: 20
+          periodSeconds: 15
+          timeoutSeconds: 15
+          failureThreshold: 3
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      volumes:
+      - name: rabbitmq-data
+        persistentVolumeClaim:
+          claimName: rabbitmq-volume
+---
+# Durable queues and persistent messages survive a rescheduled broker only on a
+# volume (the v1 pipeline keeps its in-flight work in RabbitMQ).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: rabbitmq-volume
+spec:
+  storageClassName: balanced
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq-svc
+spec:
+  selector:
+    app: rabbitmq
+  ports:
+  - name: amqp
+    port: 5672
+    targetPort: 5672
+  - name: management
+    port: 15672
+    targetPort: 15672
+  type: ClusterIP

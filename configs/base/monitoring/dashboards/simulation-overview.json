@@ -1,0 +1,107 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "Active Jobs",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "nbody_jobs_total{status=\"IN_PROGRESS\"}", "legendFormat": "Active" }
+      ],
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "blue", "value": null }] } }
+      }
+    },
+    {
+      "title": "Completed Jobs",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
+      "targets": [
+        { "expr": "nbody_jobs_total{status=\"COMPLETED\"}", "legendFormat": "Completed" }
+      ],
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": null }] } }
+      }
+    },
+    {
+      "title": "Failed Jobs",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
+      "targets": [
+        { "expr": "nbody_jobs_total{status=\"FAILED\"}", "legendFormat": "Failed" }
+      ],
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": null }] } }
+      }
+    },
+    {
+      "title": "Paused Jobs",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 0 },
+      "targets": [
+        { "expr": "nbody_jobs_total{status=\"PAUSED\"}", "legendFormat": "Paused" }
+      ],
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "yellow", "value": null }] } }
+      }
+    },
+    {
+      "title": "Bodies Simulated (Total)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 0 },
+      "targets": [
+        { "expr": "nbody_bodies_simulated_total", "legendFormat": "Bodies" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "purple", "value": null }] } }
+      }
+    },
+    {
+      "title": "Jobs Created Over Time",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 10, "x": 0, "y": 4 },
+      "targets": [
+        { "expr": "rate(nbody_jobs_created_total[5m])", "legendFormat": "Jobs/min" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ops" } }
+    },
+    {
+      "title": "Epochs Completed Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 10, "x": 10, "y": 4 },
+      "targets": [
+        { "expr": "rate(nbody_epochs_completed_total[1m])", "legendFormat": "Epochs/sec (global)" },
+        { "expr": "nbody_epoch_rate", "legendFormat": "{{compute_type}} / {{algorithm}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ops" } }
+    },
+    {
+      "title": "Active Workers",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 10, "x": 0, "y": 12 },
+      "targets": [
+        { "expr": "sum by (worker_type, compute_type) (nbody_worker_busy)", "legendFormat": "{{worker_type}} ({{compute_type}})" }
+      ],
+      "fieldConfig": { "defaults": { "min": 0 } }
+    },
+    {
+      "title": "Job Completion Time Distribution",
+      "type": "histogram",
+      "gridPos": { "h": 8, "w": 10, "x": 10, "y": 12 },
+      "targets": [
+        { "expr": "nbody_monolithic_job_seconds_bucket", "legendFormat": "{{compute_type}} / {{algorithm}}", "format": "heatmap" }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["nbody", "simulation"],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "title": "KubeNBody Simulation Overview",
+  "uid": "nbody-overview"
+}

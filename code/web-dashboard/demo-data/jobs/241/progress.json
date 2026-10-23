@@ -1,0 +1,1 @@
+{"job_id":241,"status":"COMPLETED","current_epoch":209336,"total_epochs":209336,"packages_completed":0,"total_packages":0,"progress_percentage":100.0,"estimated_time_remaining":null,"force_algorithm":"direct","barnes_hut_theta":0.5,"softening_sq":1e-09,"integration_method":"rk4"}

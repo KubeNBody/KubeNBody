@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# RabbitMQ host and credentials: the V1 services, the API and the monolithic workers (RABBITMQ_HEARTBEAT stays in each manifest, the monolithic workers' differs).
+# Appended to the env of each Deployment annotated nbody.env/rabbitmq: "true" (kustomization.yaml).
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: RABBITMQ_HOST
+    value: rabbitmq-svc
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: RABBITMQ_USER
+    valueFrom:
+      secretKeyRef:
+        key: RABBITMQ_DEFAULT_USER
+        name: rabbitmq-secrets
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: RABBITMQ_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        key: RABBITMQ_DEFAULT_PASS
+        name: rabbitmq-secrets

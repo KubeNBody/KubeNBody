@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# The namespaces, and the `ssd` and `balanced` StorageClasses on Azure Disk CSI.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base/base
+  - storage-classes.yml

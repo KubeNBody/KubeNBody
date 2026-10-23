@@ -1,0 +1,89 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# Distributed V2 CPU Worker (Redis Streams)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-distributed-v2-cpu
+  annotations:
+    nbody.env/base: "true"
+    nbody.env/minio: "true"
+    nbody.env/redis: "true"
+spec:
+  # One worker per c2d-highcpu-2 node. Scale to match the pool size when running
+  # (e.g. 16). 0 when idle.
+  replicas: 0
+  selector:
+    matchLabels:
+      app: worker-distributed-v2-cpu
+  template:
+    metadata:
+      labels:
+        app: worker-distributed-v2-cpu
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+    spec:
+      # A task in flight finishes (or a merge publishes) before the pod exits.
+      # Matches the other workers. The 30 s default could cut a merge short.
+      terminationGracePeriodSeconds: 120
+      # Pin to the dedicated Spot CPU worker pool (tainted dedicated=worker)
+      tolerations:
+        - key: dedicated
+          operator: Equal
+          value: worker
+          effect: NoSchedule
+      containers:
+      - name: worker-distributed-v2-cpu
+        image: kubenbody:latest  # Set via kustomization.yaml
+        command: ["python", "-m", "v2.worker_v2"]
+        env:
+        # The Kubernetes node, recorded with each job (utils.metadata.compute_host)
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        # Match the 2-vCPU c2d-highcpu-2 node: 2 numba threads per worker.
+        - name: NUMBA_NUM_THREADS
+          value: "2"
+        # Read the epoch's state from a Sentinel replica for odd packages
+        # (halves the primary's broadcast, and a stale or missing replica copy
+        # falls back to the primary). It pays off with many workers.
+        - name: NBODY_V2_REPLICA_READS
+          value: "1"
+        # Per-task and per-merge phase timing (code/src/task_timing.py). Off by
+        # default, it adds Redis writes to every task. "1" to enable.
+        - name: NBODY_TIMING_DETAIL
+          value: "0"
+        - name: NBODY_SNAPSHOT_DIAGNOSTICS
+          value: "0"
+        ports:
+        - containerPort: 9090
+          name: metrics
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: metrics
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: metrics
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        resources:
+          # Sized for c2d-highcpu-2 (2 vCPU / 4 GB): request ~1 vCPU so exactly
+          # one worker lands per node (2 won't fit alongside daemonsets), limit
+          # near-full so the numba loop can use both vCPUs.
+          requests:
+            memory: "512Mi"
+            cpu: "1000m"
+          limits:
+            memory: "3Gi"
+            cpu: "1900m"

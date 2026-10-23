@@ -1,0 +1,145 @@
+/* SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik */
+/* SPDX-License-Identifier: Apache-2.0 */
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+/* The dashboard is dark-only (no light theme yet): .dark on <html> keeps any
+   dark: variant consistent, but every token below is already the dark value. */
+@custom-variant dark (&:is(.dark *));
+
+/* ------------------------------------------------------------------------
+   Design tokens. Every colour in the UI goes through one of these (raw
+   Tailwind palette classes are reserved for lib/domain and components/ui).
+   Checked by scripts/check-contrast.mjs: each text token has >= 4.5:1 on each
+   surface, and the solid fills carry white text at >= 4.5:1.
+   ------------------------------------------------------------------------ */
+:root {
+  color-scheme: dark;
+  --radius: 0.5rem;
+
+  /* Surfaces, darkest to lightest: page, card, raised element (row, input, hover) */
+  --bg: #0b1120;
+  --surface-sunken: #0e1626;
+  --surface: #131c2e;
+  --surface-raised: #1b2740;
+  --border: #24314a;
+  --border-strong: #3a4a68;
+
+  /* Text */
+  --fg: #e8eef7;
+  --fg-muted: #a3b1c6;
+  --fg-subtle: #8b9ab1;
+  --link: #7cb2ff;
+
+  /* The one accent: primary actions, selection, focus */
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-fg: #ffffff;
+  --ring: #60a5fa;
+
+  /* Status tones (lib/domain/tones.ts): text/icon colour; tints derive from it */
+  --success: #4ade80;
+  --info: #60a5fa;
+  --warning: #facc15;
+  --caution: #fb923c;
+  --danger: #f87171;
+  --neutral: #a3b1c6;
+  /* Solid fills that carry white text */
+  --success-solid: #15803d;
+  --danger-solid: #dc2626;
+}
+
+@theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  --color-bg: var(--bg);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-link: var(--link);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-fg: var(--primary-fg);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-info: var(--info);
+  --color-warning: var(--warning);
+  --color-caution: var(--caution);
+  --color-danger: var(--danger);
+  --color-neutral: var(--neutral);
+  --color-success-solid: var(--success-solid);
+  --color-danger-solid: var(--danger-solid);
+
+  /* shadcn/ui names, mapped onto the tokens above */
+  --color-background: var(--bg);
+  --color-foreground: var(--fg);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--fg);
+  --color-popover: var(--surface-raised);
+  --color-popover-foreground: var(--fg);
+  --color-primary-foreground: var(--primary-fg);
+  --color-secondary: var(--surface-raised);
+  --color-secondary-foreground: var(--fg);
+  --color-muted: var(--surface-raised);
+  --color-muted-foreground: var(--fg-muted);
+  --color-accent: var(--surface-raised);
+  --color-accent-foreground: var(--fg);
+  --color-destructive: var(--danger-solid);
+  --color-destructive-foreground: #ffffff;
+  --color-input: var(--border-strong);
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  html {
+    background-color: var(--bg);
+  }
+  body {
+    @apply bg-bg text-fg antialiased;
+  }
+  /* Native checkboxes/radios/ranges in the accent (color-scheme gives the dark chrome) */
+  input[type='checkbox'],
+  input[type='radio'],
+  input[type='range'] {
+    accent-color: var(--primary);
+  }
+  /* One focus ring for everything focusable that doesn't draw its own */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/* Card surface as a utility: sorted before single-property utilities, so a
+   bg-* or border-* next to it still wins */
+@utility surface-card {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--fg-subtle);
+}

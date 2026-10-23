@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# Copy to terraform.tfvars and edit. `make apply` passes project_id, region and
+# cluster_name itself (PROJECT_ID, REGION, CLUSTER_NAME), so every value here is optional.
+
+# Core pool (regional: the count is per zone)
+# cpu_machine_type = "e2-standard-4"
+# cpu_node_count   = 1
+# cpu_disk_size_gb = 20
+
+# Worker pools (one zone, scaled by hand from 0)
+# worker_zone             = "europe-west1-b"   # default: <region>-b
+# worker_cpu_machine_type = "c2d-highcpu-2"
+# worker_cpu_node_count   = 0
+# gpu_machine_type        = "n1-standard-4"
+# gpu_spot                = false
+# gpu_node_count          = 0
+# gpu_disk_size_gb        = 50

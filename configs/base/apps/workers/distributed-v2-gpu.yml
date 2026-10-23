@@ -1,0 +1,98 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# Distributed V2 GPU Worker (Redis Streams + PyCUDA)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-distributed-v2-gpu
+  annotations:
+    nbody.env/base: "true"
+    nbody.env/minio: "true"
+    nbody.env/redis: "true"
+spec:
+  # Off by default. Set to 1 to enable.
+  replicas: 0
+  selector:
+    matchLabels:
+      app: worker-distributed-v2-gpu
+  template:
+    metadata:
+      labels:
+        app: worker-distributed-v2-gpu
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      terminationGracePeriodSeconds: 120
+
+      # Tolerate GPU node taint
+      tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+
+
+      containers:
+      - name: worker-distributed-v2-gpu
+        image: kubenbody-gpu:latest  # Set via kustomization.yaml
+        command: ["python", "-m", "v2.worker_v2_gpu"]
+
+        # GPU resources
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "2"
+            nvidia.com/gpu: 1
+          limits:
+            memory: "8Gi"
+            cpu: "4"
+            nvidia.com/gpu: 1
+
+        env:
+        # The Kubernetes node, recorded with each job (utils.metadata.compute_host)
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        # Read the epoch's state from a Sentinel replica for odd packages
+        # (halves the primary's broadcast, and a stale or missing replica copy
+        # falls back to the primary). It pays off with many workers.
+        - name: NBODY_V2_REPLICA_READS
+          value: "1"
+        # Per-task and per-merge phase timing (code/src/task_timing.py). "1" to enable.
+        - name: NBODY_TIMING_DETAIL
+          value: "0"
+        - name: NBODY_SNAPSHOT_DIAGNOSTICS
+          value: "0"
+        # CUDA
+        - name: CUDA_VISIBLE_DEVICES
+          value: "0"
+        - name: XDG_CACHE_HOME
+          value: "/tmp/.cache"
+        volumeMounts:
+        - name: cache
+          mountPath: /tmp/.cache
+        ports:
+        - name: metrics
+          containerPort: 9090
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: metrics
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: metrics
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      volumes:
+      - name: cache
+        emptyDir: {}

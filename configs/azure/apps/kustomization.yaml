@@ -1,0 +1,55 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# apps — application workloads (inherited) with ACR images + AKS scheduling
+# Inherits base/apps (orchestrator, merger, comparison-worker, dashboard,
+# watchdog, workers) with its namespace (nbody) and labels.
+#
+# Overrides:
+#  - images: the tags of kubenbody/kubenbody-gpu/kubenbody-dashboard (build-and-push.sh
+#    --azure updates them). Their registry, ACR, is a session value.
+#  - GPU workers: nodeSelector accelerator=nvidia. They already tolerate
+#    nvidia.com/gpu, which matches the GPU pool taint.
+#  - CPU workers: nodeSelector agentpool=workercpu, PLUS the Spot toleration
+#    kubernetes.azure.com/scalesetpriority=spot that AKS auto-adds to Spot pools
+#    — in addition to their existing dedicated=worker toleration.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base/apps
+
+images:
+  - name: kubenbody
+    newTag: "v1.0.0"
+  - name: kubenbody-gpu
+    newTag: "v1.0.0"
+  - name: kubenbody-dashboard
+    newTag: "v1.0.0"
+
+patches:
+  # GPU workers: retarget nodeSelector to the AKS GPU node label.
+  - target:
+      kind: Deployment
+      name: ".*-gpu$"
+    patch: |-
+      - op: add
+        path: /spec/template/spec/nodeSelector
+        value:
+          accelerator: nvidia
+
+  # CPU workers: retarget to the Spot worker pool + add the auto Spot toleration.
+  - target:
+      kind: Deployment
+      name: ".*-cpu$"
+    patch: |-
+      - op: add
+        path: /spec/template/spec/nodeSelector
+        value:
+          agentpool: workercpu
+      - op: add
+        path: /spec/template/spec/tolerations/-
+        value:
+          key: kubernetes.azure.com/scalesetpriority
+          operator: Equal
+          value: spot
+          effect: NoSchedule

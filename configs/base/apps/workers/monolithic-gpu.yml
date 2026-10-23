@@ -1,0 +1,97 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# Monolithic GPU Worker (NVIDIA T4)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-monolithic-gpu
+  annotations:
+    nbody.env/base: "true"
+    nbody.env/rabbitmq: "true"
+    nbody.env/minio: "true"
+spec:
+  # Off by default. Set to 1 to enable.
+  replicas: 0
+  selector:
+    matchLabels:
+      app: worker-monolithic-gpu
+  template:
+    metadata:
+      labels:
+        app: worker-monolithic-gpu
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      terminationGracePeriodSeconds: 120
+
+      # Tolerate GPU node taint
+      tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+
+
+      containers:
+      - name: worker-monolithic-gpu
+        image: kubenbody-gpu:latest  # Set via kustomization.yaml
+        command: ["python", "/app/src/worker_monolithic_gpu.py"]
+
+        # GPU resources
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "2"
+            nvidia.com/gpu: 1
+          limits:
+            memory: "8Gi"
+            cpu: "4"
+            nvidia.com/gpu: 1
+
+        env:
+        # The Kubernetes node, recorded with each job (utils.metadata.compute_host)
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        # Long, unlike the CPU worker's 60 s: a GPU job runs in the consumer
+        # callback (pycuda binds its context to the main thread), which blocks
+        # heartbeats for the whole job.
+        - name: RABBITMQ_HEARTBEAT
+          value: "1800"
+        # Per-snapshot energy and COM drift in the log (an O(N^2) pass per
+        # snapshot). Off by default, as on the distributed workers. "1" to enable.
+        - name: NBODY_SNAPSHOT_DIAGNOSTICS
+          value: "0"
+        # CUDA
+        - name: CUDA_VISIBLE_DEVICES
+          value: "0"
+        - name: XDG_CACHE_HOME
+          value: "/tmp/.cache"
+        volumeMounts:
+        - name: cache
+          mountPath: /tmp/.cache
+        ports:
+        - name: metrics
+          containerPort: 9090
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: metrics
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: metrics
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      volumes:
+      - name: cache
+        emptyDir: {}

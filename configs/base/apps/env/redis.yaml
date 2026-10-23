@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# Redis (Sentinel) for the V2 pipeline: the API, the orchestrator, the watchdog and the V2 workers.
+# Appended to the env of each Deployment annotated nbody.env/redis: "true" (kustomization.yaml).
+# REDIS_HOST and REDIS_PORT are the Redis host when Sentinel is off.
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: REDIS_SENTINEL_ENABLED
+    value: 'true'
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: REDIS_SENTINEL_HOSTS
+    value: redis-ha:26379
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: REDIS_SENTINEL_MASTER
+    value: nbody-master
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: REDIS_HOST
+    value: redis-ha
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: REDIS_PORT
+    value: '6379'
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: REDIS_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        key: REDIS_PASSWORD
+        name: redis-secrets
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: REDIS_DB
+    value: '0'

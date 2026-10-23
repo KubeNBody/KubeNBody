@@ -1,0 +1,57 @@
+# =============================================================================
+# Python images kubenbody (Dockerfile) and kubenbody-gpu (Dockerfile.gpu): their
+# build context is code/.
+#
+# Those Dockerfiles COPY only pyproject.toml, poetry.lock, src/ and migrations/.
+# Everything else is excluded so the context stays small and no host artefacts
+# or secrets reach an image. If a Dockerfile starts COPYing something new,
+# check it is not listed here.
+# =============================================================================
+
+# The dashboard is its own image with its own context (web-dashboard/.dockerignore);
+# its node_modules and .next alone are ~1.3 GB.
+web-dashboard/
+
+# Not used by any image
+tests/
+data/
+docs/
+docker-compose.yml
+dump.rdb
+*.rdb
+*.db
+*.sqlite
+*.sqlite3
+*.npz
+*.log
+
+# Secrets and local environments
+.env
+.env.*
+*.pem
+*.key
+.venv/
+venv/
+env/
+
+# Python and numba caches (numba's *.nbi/*.nbc are host-specific)
+**/__pycache__/
+**/*.py[cod]
+**/*.nbi
+**/*.nbc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+
+# Tooling and OS
+.git/
+.gitignore
+.claude/
+.idea/
+.vscode/
+**/.DS_Store
+.ipynb_checkpoints/

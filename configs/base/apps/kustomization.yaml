@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: nbody
+
+resources:
+  - orchestrator.yml
+  - merger.yml
+  - comparison-worker.yml
+  - dashboard.yml
+  - watchdog.yml
+  - workers/
+  - network-policies.yml
+
+# The env the Deployments share, one patch per group (env/), appended to each
+# Deployment that carries the group's annotation (nbody.env/<group>: "true")
+patches:
+  - path: env/base.yaml
+    target: {kind: Deployment, annotationSelector: nbody.env/base=true}
+  - path: env/rabbitmq.yaml
+    target: {kind: Deployment, annotationSelector: nbody.env/rabbitmq=true}
+  - path: env/minio.yaml
+    target: {kind: Deployment, annotationSelector: nbody.env/minio=true}
+  - path: env/redis.yaml
+    target: {kind: Deployment, annotationSelector: nbody.env/redis=true}
+  - path: env/tracing.yaml
+    target: {kind: Deployment, annotationSelector: nbody.env/tracing=true}
+  # pod security (security/): non-root, no privilege escalation, no capabilities
+  - path: security/python-apps.yaml
+    target: {kind: Deployment, annotationSelector: nbody.env/base=true}
+  - path: security/dashboard-frontend.yaml
+    target: {kind: Deployment, name: dashboard-frontend}
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: kubenbody
+
+# The images are kubenbody, kubenbody-gpu and kubenbody-dashboard: each overlay sets their
+# registry and tag

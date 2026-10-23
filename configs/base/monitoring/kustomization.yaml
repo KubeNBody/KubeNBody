@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: monitoring
+
+resources:
+  # LGTM (Loki, Grafana, Tempo, Mimir) - All-in-one observability
+  - lgtm-pvc.yml
+  - lgtm-deployment.yml
+  - lgtm-service.yml
+  - lgtm-service-internal.yml
+
+  # Alloy - log and metrics collector
+  - alloy-rbac.yml
+  - alloy-configmap.yml
+  - alloy-daemonset.yml
+
+# Auto-generate ConfigMaps from dashboard files
+configMapGenerator:
+  - name: grafana-dashboard-provisioning
+    files:
+      - dashboards.yaml=dashboards/provisioning.yaml
+  - name: grafana-dashboards
+    files:
+      - simulation-overview.json=dashboards/simulation-overview.json
+      - worker-performance.json=dashboards/worker-performance.json
+      - api-performance.json=dashboards/api-performance.json
+
+generatorOptions:
+  disableNameSuffixHash: true

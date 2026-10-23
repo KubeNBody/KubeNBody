@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# operators — ESO + PGO (inherited, PGO vendored in base/operators/charts)
+# Nothing static to change: the ESO ServiceAccount's IRSA annotation
+# (eks.amazonaws.com/role-arn) and the ECR mirror images
+# are session values, set by the session component (see ../kustomization.yaml).
+# The ClusterSecretStore (aws-ps, Parameter Store) is generated into
+# ../session/cluster-secret-store.yml and applied separately after the CRDs.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base/operators

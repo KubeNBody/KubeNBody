@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# Comparison Worker — background computation of persistent comparison jobs
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: comparison-worker
+  annotations:
+    nbody.env/base: "true"
+    nbody.env/rabbitmq: "true"
+    nbody.env/minio: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: comparison-worker
+  template:
+    metadata:
+      labels:
+        app: comparison-worker
+    spec:
+      containers:
+      - name: comparison-worker
+        image: kubenbody:latest  # Set via kustomization.yaml
+        command: ["python", "/app/src/comparison_worker.py"]
+        env:
+        - name: RABBITMQ_HEARTBEAT
+          value: "1800"
+        # No liveness probe: the container exits with its process.
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            # Cap the continuous (single-threaded) metrics precompute loop so
+            # it can't starve the stateful tier it shares the core pool with.
+            cpu: "1500m"

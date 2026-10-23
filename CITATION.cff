@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "KubeNBody: A Kubernetes-native platform for fault-tolerant, resumable N-body simulations"
+type: software
+version: 1.0.0
+license: Apache-2.0
+repository-code: "https://github.com/KubeNBody/KubeNBody"
+url: "https://kubenbody.github.io/KubeNBody-demo/"
+authors:
+  - family-names: Grzesik
+    given-names: Piotr
+    affiliation: "Department of Applied Informatics, Silesian University of Technology, Gliwice, Poland"
+  - family-names: Augustyn
+    given-names: Dariusz R.
+    affiliation: "Department of Applied Informatics, Silesian University of Technology, Gliwice, Poland"
+  - family-names: Wyciślik
+    given-names: Łukasz
+    affiliation: "Department of Applied Informatics, Silesian University of Technology, Gliwice, Poland"
+keywords:
+  - N-body simulation
+  - Kubernetes
+  - cloud computing
+  - fault tolerance
+  - numerical integration

@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# The `ssd` and `balanced` classes every PVC names, on Azure Disk CSI
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ssd
+provisioner: disk.csi.azure.com
+reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer
+parameters:
+  skuName: Premium_LRS
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: balanced
+provisioner: disk.csi.azure.com
+reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer
+parameters:
+  skuName: StandardSSD_LRS

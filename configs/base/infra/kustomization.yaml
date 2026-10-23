@@ -1,0 +1,84 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: nbody
+
+resources:
+  - storage.yml
+  - postgres.yml
+  - minio.yml
+  - rabbitmq.yml
+
+helmCharts:
+  - name: redis
+    repo: https://charts.bitnami.com/bitnami
+    version: "20.1.7"
+    releaseName: redis-ha
+    namespace: nbody
+    valuesInline:
+      # Pinned by digest to the tested images (Redis 8.10.2).
+      # `latest` moves, and Bitnami's 2025 catalogue change makes it a
+      # different image line.
+      image:
+        registry: docker.io
+        repository: bitnami/redis
+        tag: latest
+        digest: sha256:ef8442c1ec2e28cef662999f348a4369c22343dc0c86c3bc23041fad22f13ca1
+      sentinel:
+        image:
+          registry: docker.io
+          repository: bitnami/redis-sentinel
+          tag: latest
+          digest: sha256:fc0756ffbab4570e5f225b8a556c42cd611f58ca525f925d96f34e519dfeb640
+        enabled: true
+        masterSet: nbody-master
+      architecture: replication
+      # The chart's own policy admits every pod of every namespace on the Redis
+      # ports: without it, apps/network-policies.yml governs Redis like the rest
+      networkPolicy:
+        enabled: false
+      auth:
+        existingSecret: redis-secrets
+        existingSecretPasswordKey: REDIS_PASSWORD
+      # With Sentinel the chart renders no master StatefulSet: every node is a
+      # `replica` pod and Sentinel elects the primary. Kept equal to `replica`.
+      master:
+        resources:
+          requests:
+            cpu: 100m
+            memory: 512Mi
+          limits:
+            memory: 3Gi
+        persistence:
+          enabled: true
+          size: 4Gi
+          storageClass: ssd
+      replica:
+        replicaCount: 2
+        # The memory limit has to exceed `maxmemory 2gb` (below) plus the fork
+        # and resync overhead. At the chart default (~192Mi) a full resync is
+        # OOMKilled, which breaks replication and splits Sentinel's view. 2gb is
+        # 2 GiB to Redis, so 3Gi leaves room for the replication buffer, client
+        # output buffers and the copy-on-write pages of a BGSAVE or AOF rewrite.
+        resources:
+          requests:
+            cpu: 100m
+            memory: 512Mi
+          limits:
+            memory: 3Gi
+        persistence:
+          enabled: true
+          size: 4Gi
+          storageClass: ssd
+      commonConfiguration: |-
+        appendonly yes
+        maxmemory 2gb
+        maxmemory-policy noeviction
+        min-replicas-to-write 1
+        min-replicas-max-lag 10
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: kubenbody

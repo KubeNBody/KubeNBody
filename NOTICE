@@ -1,0 +1,41 @@
+KubeNBody
+Copyright 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+
+This product is licensed under the Apache License, Version 2.0 (see LICENCE.txt).
+
+It includes third-party components under their own licences:
+
+- The Crunchy Postgres for Kubernetes (PGO) Helm chart, in
+  configs/base/operators/charts/pgo/. Copyright Crunchy Data Solutions, Inc.,
+  under the terms in configs/base/operators/charts/pgo/LICENSE.txt, not under
+  the Apache License. The same terms cover the container images the
+  deployments pull from registry.developers.crunchydata.com (the operator,
+  PostgreSQL, pgBackRest and pgBouncer): without a Crunchy Data subscription
+  they are provided under the Crunchy Data Developer Program terms of use.
+
+- UI components in code/web-dashboard/src/components/ui/ generated from
+  shadcn/ui and adapted (the files whose header names shadcn). Copyright (c)
+  2023 shadcn. MIT License:
+
+    Permission is hereby granted, free of charge, to any person obtaining a
+    copy of this software and associated documentation files (the
+    "Software"), to deal in the Software without restriction, including
+    without limitation the rights to use, copy, modify, merge, publish,
+    distribute, sublicense, and/or sell copies of the Software, and to permit
+    persons to whom the Software is furnished to do so, subject to the
+    following conditions:
+
+    The above copyright notice and this permission notice shall be included
+    in all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+    OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+    NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+    DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+    OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+    USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+- The Noto Sans font, in code/web-dashboard/public/fonts/. Copyright 2022 The
+  Noto Project Authors. SIL Open Font License 1.1
+  (code/web-dashboard/public/fonts/NotoSans-OFL.txt).

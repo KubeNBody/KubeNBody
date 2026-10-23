@@ -1,0 +1,14 @@
+[
+  {"source": "docker.io/bitnami/redis:latest@sha256:ef8442c1ec2e28cef662999f348a4369c22343dc0c86c3bc23041fad22f13ca1", "repo": "mirror/bitnami/redis", "tag": "latest", "match": "docker.io/bitnami/redis"},
+  {"source": "docker.io/bitnami/redis-sentinel:latest@sha256:fc0756ffbab4570e5f225b8a556c42cd611f58ca525f925d96f34e519dfeb640", "repo": "mirror/bitnami/redis-sentinel", "tag": "latest", "match": "docker.io/bitnami/redis-sentinel"},
+  {"source": "docker.io/library/rabbitmq:3.12.6-management", "repo": "mirror/library/rabbitmq", "tag": "3.12.6-management", "match": "rabbitmq"},
+  {"source": "cgr.dev/chainguard/minio@sha256:6a1d0b45c8669726bba580ced0bfa4cb9fdeed1ed636dfabd81d1577beb6937b", "repo": "mirror/chainguard/minio", "tag": "pinned", "match": "cgr.dev/chainguard/minio"},
+  {"source": "docker.io/grafana/otel-lgtm:0.13.0", "repo": "mirror/grafana/otel-lgtm", "tag": "0.13.0", "match": "grafana/otel-lgtm"},
+  {"source": "docker.io/grafana/alloy:v1.12.1", "repo": "mirror/grafana/alloy", "tag": "v1.12.1", "match": "grafana/alloy"},
+  {"source": "nvcr.io/nvidia/k8s-device-plugin:v0.18.0", "repo": "mirror/nvidia/k8s-device-plugin", "tag": "v0.18.0", "match": "nvcr.io/nvidia/k8s-device-plugin"},
+  {"source": "ghcr.io/external-secrets/external-secrets:v0.9.9", "repo": "mirror/external-secrets/external-secrets", "tag": "v0.9.9", "match": "ghcr.io/external-secrets/external-secrets"},
+  {"source": "registry.developers.crunchydata.com/crunchydata/postgres-operator:ubi8-5.7.4-0", "repo": "mirror/crunchydata/postgres-operator", "tag": "ubi8-5.7.4-0", "match": "registry.developers.crunchydata.com/crunchydata/postgres-operator"},
+  {"source": "registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-17.4-0", "repo": "mirror/crunchydata/crunchy-postgres", "tag": "ubi8-17.4-0", "pgo_field": "/spec/image"},
+  {"source": "registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.54.1-1", "repo": "mirror/crunchydata/crunchy-pgbackrest", "tag": "ubi8-2.54.1-1", "pgo_field": "/spec/backups/pgbackrest/image"},
+  {"source": "registry.developers.crunchydata.com/crunchydata/crunchy-pgbouncer:ubi8-1.23-4", "repo": "mirror/crunchydata/crunchy-pgbouncer", "tag": "ubi8-1.23-4", "pgo_field": "/spec/proxy/pgBouncer/image"}
+]

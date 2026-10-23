@@ -1,0 +1,87 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lgtm
+  labels:
+    app: lgtm
+spec:
+  # Off by default to leave CPU/memory to the workers. Set to 1 to enable the
+  # observability stack.
+  replicas: 0
+  # ReadWriteOnce volume (lgtm-data): a rolling update would hang on the
+  # attachment, so stop the old pod first.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: lgtm
+  template:
+    metadata:
+      labels:
+        app: lgtm
+    spec:
+      containers:
+        - name: lgtm
+          image: grafana/otel-lgtm:0.13.0
+          ports:
+            - name: grafana
+              containerPort: 3000
+            - name: otlp-grpc
+              containerPort: 4317
+            - name: otlp-http
+              containerPort: 4318
+            - name: prometheus
+              containerPort: 9090
+            - name: loki
+              containerPort: 3100
+            - name: tempo-grpc
+              containerPort: 4320
+            - name: tempo-http
+              containerPort: 4321
+          env:
+            # the image enables anonymous access with the Admin role unless told otherwise
+            - name: GF_AUTH_ANONYMOUS_ENABLED
+              value: "false"
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-credentials
+                  key: admin-password
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: dashboard-provisioning
+              mountPath: /etc/grafana/provisioning/dashboards
+            - name: dashboards
+              mountPath: /etc/grafana/dashboards
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 60
+            periodSeconds: 30
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: lgtm-data
+        - name: dashboard-provisioning
+          configMap:
+            name: grafana-dashboard-provisioning
+        - name: dashboards
+          configMap:
+            name: grafana-dashboards

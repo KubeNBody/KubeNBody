@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# Merger
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: merger
+  annotations:
+    nbody.env/base: "true"
+    nbody.env/rabbitmq: "true"
+    nbody.env/minio: "true"
+    nbody.env/tracing: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: merger
+  template:
+    metadata:
+      labels:
+        app: merger
+    spec:
+      containers:
+      - name: merger
+        image: kubenbody:latest  # Set via kustomization.yaml
+        command: ["python", "/app/src/merger.py"]
+        env:
+        - name: RABBITMQ_HEARTBEAT
+          value: "1800"
+        # No liveness probe: the container exits with its process.
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"

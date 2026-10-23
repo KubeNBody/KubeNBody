@@ -1,0 +1,63 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "Request Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "sum by (endpoint) (rate(nbody_requests_total[5m]))", "legendFormat": "{{endpoint}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "reqps" } }
+    },
+    {
+      "title": "Error Rate (5xx)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        { "expr": "sum by (endpoint) (rate(nbody_requests_total{status=~\"5..\"}[5m]))", "legendFormat": "{{endpoint}} errors" },
+        { "expr": "sum(rate(nbody_requests_total{status=~\"5..\"}[5m])) / sum(rate(nbody_requests_total[5m]))", "legendFormat": "Error %" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "reqps" } }
+    },
+    {
+      "title": "Request Latency Heatmap",
+      "type": "heatmap",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "targets": [
+        { "expr": "sum by (le) (rate(nbody_request_latency_seconds_bucket[5m]))", "legendFormat": "{{le}}", "format": "heatmap" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "title": "Latency by Endpoint (p50 / p95)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum by (endpoint, le) (rate(nbody_request_latency_seconds_bucket[5m])))", "legendFormat": "p50 {{endpoint}}" },
+        { "expr": "histogram_quantile(0.95, sum by (endpoint, le) (rate(nbody_request_latency_seconds_bucket[5m])))", "legendFormat": "p95 {{endpoint}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "title": "Top 5 Slowest Endpoints (p95)",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        { "expr": "topk(5, histogram_quantile(0.95, sum by (endpoint, le) (rate(nbody_request_latency_seconds_bucket[5m]))))", "legendFormat": "{{endpoint}}", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["nbody", "api", "performance"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "title": "KubeNBody API Performance",
+  "uid": "nbody-api"
+}

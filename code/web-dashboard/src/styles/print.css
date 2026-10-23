@@ -1,0 +1,132 @@
+/* SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik */
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Print stylesheet for "Export to PDF" on the compare page.
+ *
+ * Strategy: preserve the dark theme entirely in print so chart legends and
+ * axis labels (drawn inside SVG with hardcoded white fill) stay readable
+ * on their dark `.bg-slate-800/30` wrappers. We force the browser to honor
+ * background colors and gradients (it strips them by default to save ink)
+ * and only hide controls / picker chrome.
+ *
+ * Opt-in classes used on the page:
+ *   .no-print       hide this element in PDF
+ *   .print-section  keep this element on a single page (no mid-cut)
+ */
+@media print {
+  /* Tell Chrome/Safari/Firefox to render background colors, gradients, and
+   * images as-is. Without this, the dark slate / cosmic gradient and the
+   * chart-card backgrounds get stripped to white, which leaves white-on-
+   * white SVG legend/axis text invisible. */
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* The dashboard's dark cosmic-gradient lives on a `min-h-screen` wrapper.
+   * For multi-page PDFs the body itself shows on subsequent pages, so set
+   * a matching dark background on html/body to keep the whole print dark. */
+  html, body {
+    background: #0f172a !important;  /* slate-900 — matches gradient end */
+  }
+
+  /* App chrome: sidebar nav, top header, toasts, devtools. */
+  nav, header, aside, [role="navigation"],
+  [data-sonner-toaster], [data-rq-devtools] {
+    display: none !important;
+  }
+
+  /* Anything explicitly tagged .no-print is hidden in PDF. Picker card,
+   * run buttons, loading spinners, error banners get this class. */
+  .no-print { display: none !important; }
+
+  /* Defensive: kill mobile sidebar drawer overlay if user has it open. */
+  div.fixed.inset-0.z-50 {
+    display: none !important;
+  }
+
+  /* Reclaim the sidebar gutter (256px left padding from the dashboard
+   * layout) so content uses the full page width after nav is hidden. */
+  .lg\:pl-64 {
+    padding-left: 0 !important;
+  }
+
+  /* Keep figures and tables on a single page where possible. */
+  .print-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-bottom: 1rem;
+  }
+
+  /* d3 charts set a `viewBox` (locking the drawn coordinate space) and
+   * the browser scales content uniformly to fit the SVG element's pixel
+   * size. We override the inline `style={{ height: '300px' }}` here so the
+   * SVG auto-sizes vertically based on its viewBox aspect ratio — when the
+   * printed container is narrower than screen, the chart shrinks
+   * proportionally instead of leaving empty space below the data. */
+  svg {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  /* Tables: ensure rows aren't split across page breaks. */
+  table { width: 100%; }
+  tr, td, th { page-break-inside: avoid; }
+
+  /* Force tables in print to strictly fit their container width. Without
+   * `table-layout: fixed`, the browser sizes columns by content min-width
+   * and the table can grow wider than the card it sits in — content
+   * (especially long values like "symplectic_euler") pushes the right edge
+   * past the card boundary, since our `overflow-x-auto` override makes
+   * that overflow visible. Fixed layout distributes available width across
+   * columns evenly, and long cell content wraps. */
+  .print-section table {
+    table-layout: fixed;
+    width: 100% !important;
+    font-size: 0.6rem;
+  }
+  .print-section th,
+  .print-section td {
+    padding: 3px 5px !important;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    line-height: 1.3;
+  }
+
+  /* Badge component (status pills, etc.) has its own `text-xs` (~12px) and
+   * px-2.5 padding which don't inherit the smaller table font. Inside a
+   * fixed-width 1/9 column the "COMPLETED" text wraps to 3 lines, looking
+   * crammed. Shrink the badge font to fit and force single-line. */
+  .print-section table .rounded-full {
+    font-size: 0.55rem !important;
+    padding: 1px 4px !important;
+    white-space: nowrap !important;
+  }
+
+  /* `overflow-x-auto` wraps wide tables to give them a horizontal scrollbar
+   * on screen. In print there's no scrollbar — the overflow just gets
+   * clipped, hiding the right columns. Show all content instead. */
+  .print-section .overflow-x-auto,
+  .print-section .overflow-auto,
+  .print-section .overflow-hidden {
+    overflow: visible !important;
+  }
+
+  /* The Job Parameters table truncates the Note column on screen because
+   * hover-tooltips reveal the full text. In print, hover doesn't exist —
+   * undo the truncation so the full description prints. `overflow-wrap:
+   * anywhere` is critical: it lets the browser break inside long
+   * unbreakable strings (e.g. a long token with no spaces) instead of
+   * forcing the column wider than the page. The existing `max-w-[16rem]`
+   * on the Note cell then actually constrains the column. */
+  .print-section .truncate {
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  /* Buttons have no use on paper. */
+  button { display: none !important; }
+}

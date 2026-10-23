@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# Azure overlay — top-level kustomization
+# Overlay of configs/base: each subdir references the matching base subdir
+# (directory base) and adds only the cloud-specific bits for AKS.
+#
+# The deployment's values (ACR, the ESO identity, the Key Vault) come from the
+# generated, git-ignored component session/, written by `make configure` (or
+# `make render`, with example values). Its cluster-secret-store.yml is applied
+# separately, after the ESO CRDs (infra/common/deploy-k8s.sh).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - base
+  - operators
+  - secrets
+  - infra
+  - apps
+  - monitoring
+  - gpu
+
+components:
+  - session

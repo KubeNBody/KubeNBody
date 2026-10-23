@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# Azure prod — example variables. Copy to terraform.tfvars and edit.
+
+# Required (all GLOBALLY unique)
+subscription_id                 = "00000000-0000-0000-0000-000000000000"
+acr_name                        = "nbodyacrCHANGEME"   # 5-50 chars, lowercase alphanumeric
+key_vault_name                  = "nbody-kv-CHANGEME"  # 3-24 chars, alphanumeric + dashes
+pgbackrest_storage_account_name = "nbodypgbrCHANGEME"  # 3-24 chars, lowercase alphanumeric
+
+# Optional overrides (defaults shown)
+# location, resource_group_name and cluster_name come from the Makefile
+# (LOCATION, RESOURCE_GROUP, CLUSTER_NAME): set them there, e.g. make apply LOCATION=westeurope
+# kubernetes_version    = null            # AKS default stable
+
+# Zones — regional system pool, single-zone worker/GPU (mirrors GKE)
+# cluster_zones = ["1", "2", "3"]
+# worker_zone   = "1"
+
+# Node pools (GKE-matched, GPU and worker on-demand)
+# system_vm_size        = "Standard_D4s_v5"
+# system_node_count     = 2
+# worker_cpu_vm_size    = "Standard_D2ls_v5"   # 2 vCPU/4 GiB, as GKE's c2d-highcpu-2
+# worker_cpu_node_count = 0
+# gpu_vm_size           = "Standard_NC4as_T4_v3"
+# gpu_node_count        = 0

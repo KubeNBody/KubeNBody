@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# monitoring — LGTM + Alloy (inherited) with Grafana LB made internal
+# Inherits base/monitoring (LGTM, Alloy, dashboards — all cloud-neutral, Alloy
+# uses in-cluster service discovery, no GCE-metadata dependency).
+#
+# The `lgtm` Service is a public LoadBalancer on GKE. On AKS a LoadBalancer is
+# public by default, which would expose Grafana:3000 to the internet, so the
+# internal-LB annotation keeps Grafana internal.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base/monitoring
+
+patches:
+  - target:
+      kind: Service
+      name: lgtm
+    patch: |-
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: lgtm
+        namespace: monitoring
+        annotations:
+          service.beta.kubernetes.io/azure-load-balancer-internal: "true"

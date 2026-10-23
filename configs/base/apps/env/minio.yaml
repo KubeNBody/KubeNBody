@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# MinIO endpoint and credentials: every Deployment that reads or writes objects.
+# Appended to the env of each Deployment annotated nbody.env/minio: "true" (kustomization.yaml).
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: MINIO_URL
+    value: http://minio-svc:9000
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: MINIO_USER
+    valueFrom:
+      secretKeyRef:
+        key: MINIO_ROOT_USER
+        name: minio-secrets
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: MINIO_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        key: MINIO_ROOT_PASSWORD
+        name: minio-secrets

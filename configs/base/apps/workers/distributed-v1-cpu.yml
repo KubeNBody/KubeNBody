@@ -1,0 +1,72 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# Distributed V1 CPU Worker
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-distributed-v1-cpu
+  annotations:
+    nbody.env/base: "true"
+    nbody.env/rabbitmq: "true"
+    nbody.env/minio: "true"
+spec:
+  # Off by default. Set to 2 to enable.
+  replicas: 0
+  selector:
+    matchLabels:
+      app: worker-distributed-v1-cpu
+  template:
+    metadata:
+      labels:
+        app: worker-distributed-v1-cpu
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      # Pin to the dedicated Spot CPU worker pool (tainted dedicated=worker)
+      tolerations:
+        - key: dedicated
+          operator: Equal
+          value: worker
+          effect: NoSchedule
+      terminationGracePeriodSeconds: 120
+      containers:
+      - name: worker-distributed-v1-cpu
+        image: kubenbody:latest  # Set via kustomization.yaml
+        command: ["python", "/app/src/worker.py"]
+        env:
+        # The Kubernetes node, recorded with each job (utils.metadata.compute_host)
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: RABBITMQ_HEARTBEAT
+          value: "1800"
+        ports:
+        - name: metrics
+          containerPort: 9090
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: metrics
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: metrics
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "1"
+          limits:
+            memory: "4Gi"
+            cpu: "2"

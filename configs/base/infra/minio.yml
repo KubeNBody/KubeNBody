@@ -1,0 +1,98 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# MinIO (S3-compatible object storage)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minio
+spec:
+  replicas: 1
+  # The volume is a ReadWriteOnce disk: a rolling update would start the new pod
+  # while the old one still holds the attachment (Multi-Attach error), and two
+  # MinIO servers must never share /data. Stop the old pod first.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: minio
+  template:
+    metadata:
+      labels:
+        app: minio
+    spec:
+      # The data on the volume is root-owned (written by the upstream image).
+      # This image runs as non-root by default.
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+      containers:
+      - name: minio
+        # minio/minio is no longer published on Docker Hub or quay.io. This is
+        # Chainguard's build of the same server, pinned by digest:
+        # RELEASE.2026-09-22T19-25-18Z. The
+        # manifest invokes `minio server /data` directly, so the image's own
+        # entrypoint is not used.
+        image: cgr.dev/chainguard/minio@sha256:6a1d0b45c8669726bba580ced0bfa4cb9fdeed1ed636dfabd81d1577beb6937b
+        env:
+        - name: MINIO_ROOT_USER
+          valueFrom:
+            secretKeyRef:
+              name: minio-secrets
+              key: MINIO_ROOT_USER
+        - name: MINIO_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: minio-secrets
+              key: MINIO_ROOT_PASSWORD
+        ports:
+        - containerPort: 9000
+        - containerPort: 9001
+        command: ["minio"]
+        args: ["server", "/data", "--console-address", ":9001"]
+        livenessProbe:
+          httpGet:
+            path: /minio/health/live
+            port: 9000
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /minio/health/ready
+            port: 9000
+          initialDelaySeconds: 10
+          periodSeconds: 15
+          timeoutSeconds: 10
+          failureThreshold: 3
+        volumeMounts:
+        - name: minio-storage
+          mountPath: /data
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+      volumes:
+      - name: minio-storage
+        persistentVolumeClaim:
+          claimName: minio-volume
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-svc
+spec:
+  selector:
+    app: minio
+  ports:
+  - name: api
+    port: 9000
+    targetPort: 9000
+  - name: console
+    port: 9001
+    targetPort: 9001
+  type: ClusterIP

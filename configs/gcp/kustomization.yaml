@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# GKE overlay of configs/base: the cluster from infra/gcp, deployed in stages by
+# `make deploy-k8s` there. The deployment's values (project, registry,
+# identities, bucket) come from the generated, git-ignored component session/,
+# written by `make configure` (or `make render`, with example values).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - base
+  - operators
+  - secrets
+  - infra
+  - apps
+  - ../base/monitoring
+
+components:
+  - session

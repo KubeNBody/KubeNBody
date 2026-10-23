@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# Deploy stage 2 — operators only (ESO + PGO), with the session component
+# `make deploy-k8s` applies this before the CRD wait, exactly like the GCP/Azure
+# step 2. It needs the session component for the ESO IRSA annotation and the
+# ECR mirror images, attached here (not in operators/) so it never runs twice
+# in the full build.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../operators
+
+components:
+  - ../../session

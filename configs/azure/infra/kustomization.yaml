@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# infra — Postgres/MinIO/RabbitMQ/Redis (inherited) with Postgres → Azure Blob
+# Inherits base/infra (MinIO, RabbitMQ, Redis-HA helm, storage PVCs — all
+# cloud-neutral. They reference `ssd`/`balanced` by name, provided on Azure
+# Disk CSI by base/).
+#
+# Postgres pgBackRest → Azure Blob:
+#  - repos[0] on azure (container "pgbackrest").
+#  - retention by pgBackRest (the base keeps 7 full backups), NOT by a blob
+#    lifecycle rule — the storage account's 90-day rule is a backstop only.
+#  - the base's config Secret is DELETED from the build. ESO materializes
+#    an Azure `azure.conf` Secret of the same name from Key Vault (shared
+#    key) — see ../secrets/pgbackrest-externalsecret.yml.
+#  - the pgBackRest SA needs no Workload Identity (shared key, not WI).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base/infra
+
+patches:
+  # pgBackRest repo -> Azure Blob
+  - target:
+      kind: PostgresCluster
+      name: nbody-db
+    patch: |-
+      - op: replace
+        path: /spec/backups/pgbackrest/repos
+        value:
+          - name: repo1
+            schedules:
+              full: "0 1 * * *"
+            azure:
+              container: "pgbackrest"
+
+  # Drop the base config Secret — ESO owns the Azure azure.conf Secret
+  # (same name, nbody-db-pgbackrest-secret) built from Key Vault.
+  - target:
+      kind: Secret
+      name: nbody-db-pgbackrest-secret
+    patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: nbody-db-pgbackrest-secret

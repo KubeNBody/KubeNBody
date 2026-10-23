@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# pgBackRest to a GCS bucket through Workload Identity. The bucket and the
+# service account's identity are deployment values, in the generated session
+# component.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base/infra
+
+patches:
+  - target:
+      kind: Secret
+      name: nbody-db-pgbackrest-secret
+    patch: |-
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: nbody-db-pgbackrest-secret
+      stringData:
+        gcs.conf: "[global]\nrepo1-gcs-key-type=auto\n"
+  - target:
+      kind: PostgresCluster
+      name: nbody-db
+    patch: |-
+      - op: add
+        path: /spec/backups/pgbackrest/repos/0/gcs
+        value:
+          bucket: "SESSION-bucket"

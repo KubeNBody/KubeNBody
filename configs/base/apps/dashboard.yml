@@ -1,0 +1,152 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# Dashboard Backend (API)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dashboard-backend
+  annotations:
+    nbody.env/base: "true"
+    nbody.env/rabbitmq: "true"
+    nbody.env/minio: "true"
+    nbody.env/redis: "true"
+    nbody.env/tracing: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dashboard-backend
+  template:
+    metadata:
+      labels:
+        app: dashboard-backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: dashboard-backend
+        image: kubenbody:latest  # Set via kustomization.yaml
+        command: ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
+        env:
+        # Auth (api-secrets ExternalSecret, without which the API refuses to start)
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: api-secrets
+              key: JWT_SECRET_KEY
+        - name: DEFAULT_USER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: api-secrets
+              key: DEFAULT_USER_PASSWORD
+        - name: RABBITMQ_HEARTBEAT
+          value: "1800"
+        ports:
+        - containerPort: 8000
+        # liveness: the process serves requests (no dependency checks: a
+        # restart would not bring a dependency back). Readiness: the database
+        livenessProbe:
+          httpGet:
+            path: /api/live
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/ready
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            # Metrics computations for N jobs run concurrently (one thread
+            # each, numba releases the GIL). 3 cores (node allocatable is
+            # 3920m) lets a multi-job comparison page compute in parallel
+            # instead of time-slicing one core.
+            cpu: "3"
+            # an upload is spooled to /tmp while it is parsed
+            ephemeral-storage: "4Gi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dashboard-backend-svc
+spec:
+  selector:
+    app: dashboard-backend
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+  type: ClusterIP
+---
+# Dashboard Frontend
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dashboard-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dashboard-frontend
+  template:
+    metadata:
+      labels:
+        app: dashboard-frontend
+    spec:
+      containers:
+      - name: dashboard-frontend
+        image: kubenbody-dashboard:latest  # Set via kustomization.yaml
+        env:
+        - name: API_URL
+          value: http://dashboard-backend-svc:8000
+        - name: NODE_ENV
+          value: production
+        ports:
+        - containerPort: 8501
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8501
+          initialDelaySeconds: 20
+          periodSeconds: 30
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8501
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          failureThreshold: 3
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "250m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dashboard-frontend-svc
+spec:
+  selector:
+    app: dashboard-frontend
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8501
+  type: LoadBalancer  # External access

@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base/apps
+
+# The tags (scripts/build-and-push.sh updates them). The registry, Artifact
+# Registry, is a session value.
+images:
+  - name: kubenbody
+    newTag: "v1.0.0"
+  - name: kubenbody-gpu
+    newTag: "v1.0.0"
+  - name: kubenbody-dashboard
+    newTag: "v1.0.0"
+
+# The GKE node pools: GPU workers on the T4 pool, CPU workers on worker-cpu
+patches:
+  - target:
+      kind: Deployment
+      name: ".*-gpu$"
+    patch: |-
+      - op: add
+        path: /spec/template/spec/nodeSelector
+        value:
+          cloud.google.com/gke-accelerator: nvidia-tesla-t4
+  - target:
+      kind: Deployment
+      name: ".*-cpu$"
+    patch: |-
+      - op: add
+        path: /spec/template/spec/nodeSelector
+        value:
+          cloud.google.com/gke-nodepool: worker-cpu

@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# Watchdog - Monolithic job recovery
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: watchdog
+  annotations:
+    nbody.env/base: "true"
+    nbody.env/rabbitmq: "true"
+    nbody.env/redis: "true"
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: watchdog
+  template:
+    metadata:
+      labels:
+        app: watchdog
+    spec:
+      containers:
+      - name: watchdog
+        image: kubenbody:latest  # Set via kustomization.yaml
+        command: ["python", "/app/src/watchdog.py"]
+        env:
+        - name: RABBITMQ_HEARTBEAT
+          value: "1800"
+        # V2 jobs with no committed epoch for this long (or no Redis state) are
+        # marked FAILED ("log" to only log). See watchdog.py
+        - name: NBODY_V2_STALL_MINUTES
+          value: "30"
+        - name: NBODY_V2_STALL_ACTION
+          value: "fail"
+        # No liveness probe: the container exits with its process.
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"

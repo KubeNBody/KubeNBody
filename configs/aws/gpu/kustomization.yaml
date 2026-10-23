@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2026 Piotr Grzesik, Dariusz R. Augustyn, Łukasz Wyciślik
+# SPDX-License-Identifier: Apache-2.0
+# gpu — NVIDIA device plugin
+# The EKS AL2023 NVIDIA AMI ships the driver, CUDA user-mode driver and the
+# container toolkit, but NOT the device plugin — without it nodes never
+# advertise nvidia.com/gpu. The shared DaemonSet (configs/base/gpu) selects
+# accelerator=nvidia (set as a GPU node-group label in infra/aws/modules/eks)
+# and tolerates the nvidia.com/gpu taint. The image is renamed to its ECR
+# mirror by the session component.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base/gpu
